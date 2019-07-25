@@ -2,14 +2,12 @@ import numpy, random, pyglet
 from pyglet.window import mouse, key
 
 WINDOW_WIDTH = 640
-WINDOW_HEIGHT = 640
+WINDOW_HEIGHT = 480
 CELL_WIDTH = 16
 CELL_HEIGHT = 16
-TIME_CONST = 60
+TIME_CONST = 120
 window = pyglet.window.Window(width = WINDOW_WIDTH, height = WINDOW_HEIGHT)
 
-
-TEST_MAP = [line.rstrip('\n') for line in open("D:\\Python36_projects\\test_map.txt","r")]
 
 def distance(x1,y1,x2,y2):
     return (y2-y1)**2 + (x2-x1)**2
@@ -55,7 +53,7 @@ class Maze:
         numNeighboringOnes = 0
         coords = [(node.x-1,node.y-1),(node.x-1,node.y),(node.x-1,node.y+1), (node.x,node.y-1) ,(node.x,node.y+1), (node.x+1,node.y-1),(node.x+1,node.y),(node.x+1,node.y+1)]
         numNeighboringOnes = sum([1 for x,y in coords if self.pointOnGrid(x, y) and self.maze[y][x]==1])
-        return numNeighboringOnes<3 and not self.maze[node.y][node.x] == 1
+        return numNeighboringOnes in (0,1,2) and not self.maze[node.y][node.x] == 1
     
     def randomlyAddNodesToStack(self, nodes):
         random.shuffle(nodes)
@@ -97,12 +95,12 @@ class Maze:
                 if currentCell == 0:
                     X1,Y1 = x * CELL_WIDTH, y * CELL_HEIGHT,
                     X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
-                    pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )
-                
+                    pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )    
+                    
             
         
-    
-    
+     
+
 class Pathfinder:
     def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 1/60 ):
         self.X, self.Y = X, Y
@@ -112,6 +110,9 @@ class Pathfinder:
         self.trailcolor = tuple([x//2 for x in color])
         self.speed = speed
         self.timer = 0
+        
+        self.states = ("SEEKING", "WANDERING", "FLEEING")
+        self.state = random.choice(self.states)
            
     def set_target(self,TARGET_X,TARGET_Y):
         self.TARGET_X, self.TARGET_Y = TARGET_X, TARGET_Y
@@ -125,20 +126,23 @@ class Pathfinder:
         #test method
         directions = [(1,0), (0,1), (-1,0), (0,-1)] #List of directions: Right, Up, Left, Down
         open_cells = [map.check_cell_open(self.X + DX, self.Y + DY) for DX, DY in directions] #Check if each neighboring cell is open
-        print("Right: "+str(open_cells[0])+" Up: "+str(open_cells[1])+" Left: "+str(open_cells[2]) + " Down: "+str(open_cells[3]))
-        distances = [distance(self.X + DX, self.Y + DY, self.TARGET_X, self.TARGET_Y) for DX, DY in directions]
-        print("Right: "+str(distances[0])+" Up: "+str(distances[1])+" Left: "+str(distances[2]) + " Down: "+str(distances[3]))
-        
         #directions that can be moved in
         valid_directions_noreturn_indexes = [d for d in (0,1,2,3) if open_cells[d] and not (self.X + directions[d][0], self.Y + directions[d][1]) == (self.PREV_X, self.PREV_Y)]
         #allow moving back into previous space ONLY if there's no way to move forward
         valid_directions_indexes = [d for d in (0,1,2,3) if open_cells[d]]
         
-        if valid_directions_noreturn_indexes:
-            return directions[random.choice(valid_directions_noreturn_indexes)]
+        #if there's nowhere to go, then don't move
+        if not valid_directions_noreturn_indexes and not valid_directions_indexes: return (0,0)
+       
+        #if there's only one way to go then go there
+        if len(valid_directions_noreturn_indexes) == 1: return directions[valid_directions_noreturn_indexes[0]]
         
-        if valid_directions_indexes:
-            return directions[random.choice(valid_directions_indexes)]
+        if not valid_directions_noreturn_indexes and len(valid_directions_indexes) == 1: return directions[valid_directions_indexes[0]]
+              
+        #If there's more than one direction you can pick from, pick one        
+        if valid_directions_noreturn_indexes: return directions[random.choice(valid_directions_noreturn_indexes)]
+        
+        if valid_directions_indexes: return directions[random.choice(valid_directions_indexes)]
         
         #don't move 
         return (0,0)
@@ -147,49 +151,37 @@ class Pathfinder:
         #If you're already at the target, you're done!
         #If there's no map you're screwed
         if self.is_at_target() or map==None: return (0,0)
-            
         #List of directions: Right, Up, Left, Down
         directions = [(1,0), (0,1), (-1,0), (0,-1)] 
-        
         #Check if each neighboring cell is open
         open_cells = [map.check_cell_open(self.X + DX, self.Y + DY) for DX, DY in directions] 
-        #print("Right: "+str(open_cells[0])+" Up: "+str(open_cells[1])+" Left: "+str(open_cells[2]) + " Down: "+str(open_cells[3]))
-        
         #Distance of each neighboring cell from the target cell
         distances = [distance(self.X + DX, self.Y + DY, self.TARGET_X, self.TARGET_Y) for DX, DY in directions]
-        #print("Right: "+str(distances[0])+" Up: "+str(distances[1])+" Left: "+str(distances[2]) + " Down: "+str(distances[3]))
-        
         #directions that are "open" (can be moved into) without walking into a previous space
         valid_directions_noreturn_indexes = [d for d in (0,1,2,3) if open_cells[d] and not (self.X + directions[d][0], self.Y + directions[d][1]) == (self.PREV_X, self.PREV_Y)]
         #allow moving back into previous space ONLY if there's no way to move forward otherwise
         valid_directions_indexes = [d for d in (0,1,2,3) if open_cells[d]]
-        
         #if there's nowhere to go, then don't move
         if not valid_directions_noreturn_indexes and not valid_directions_indexes: return (0,0)
-       
         #if there's only one way to go then go there
-        if len(valid_directions_noreturn_indexes) == 1:
-            return directions[valid_directions_noreturn_indexes[0]]
-        
-        if not valid_directions_noreturn_indexes and len(valid_directions_indexes) == 1:
-            return directions[valid_directions_indexes[0]]
+        if len(valid_directions_noreturn_indexes) == 1: return directions[valid_directions_noreturn_indexes[0]]
+        if not valid_directions_noreturn_indexes and len(valid_directions_indexes) == 1: return directions[valid_directions_indexes[0]]
               
-        #If there's more than one direction you can pick from, pick the one that's the smallest
+        #If there's more than one direction you can pick from, pick the one that's gonna minimize your distance to your target
         i1, d_min= -1, 99999
         if valid_directions_noreturn_indexes:
             for dir in valid_directions_noreturn_indexes:
-                if distances[dir] <= d_min: 
-                    i1, d_min = dir, distances[dir]
+                if distances[dir] <= d_min: i1, d_min = dir, distances[dir]
                 
             
         
         i2, d_min = -1, 99999
         if valid_directions_indexes:
             for dir in valid_directions_indexes:
-                if distances[dir] <= d_min: 
-                    i2, d_min = dir, distances[dir]
-                
+                if distances[dir] <= d_min: i2, d_min = dir, distances[dir]
             
+        
+        
         if not i1 == -1: return directions[i1]
         else:
             if not i2 == -1: return directions[i2]
@@ -197,7 +189,7 @@ class Pathfinder:
                 return (0,0)
             
         
-        print("The algorithm should return something well before it gets to this point")
+        
         return (0,0)
          
     def is_at_target(self):
@@ -207,7 +199,10 @@ class Pathfinder:
         #automatic movement to target
         self.timer += t
         if self.timer >= self.speed: 
-            dx, dy = self.pick_direction_greedy(map)
+            if self.state == "SEEKING":
+                dx, dy = self.pick_direction_greedy(map)
+            else:
+                dx, dy = self.pick_direction_random(map)
             self.move(dx,dy)
             self.timer = 0
         
@@ -240,16 +235,20 @@ class Pathfinder:
 class PlayerObject:
     def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,255,0)):
         self.X, self.Y = X, Y
-        self.PREV_X, self.PREV_Y = X,Y
+        self.PREV_X, self.PREV_Y = X, Y
         self.VX, self.VY = 0,0
+        self.timerX, self.timerY = 0,0
         self.color = color
         self.trailcolor = tuple([x//2 for x in color])    
         
-    def move(self, map):
+    def step(self, map):
+        self.move(self.VX,self.VY)
+        if not map.check_cell_open(self.X,self.Y): self.X, self.Y = self.PREV_X, self.PREV_Y
+        
+    def move(self, DX, DY):
         #Move in a particular direction
         self.PREV_X, self.PREV_Y = self.X, self.Y
         self.X, self.Y = self.X+self.VX, self.Y+self.VY
-        if not map.check_cell_open(self.X,self.Y): self.X, self.Y = self.PREV_X, self.PREV_Y
         
     def on_key_press(self,symbol,map):
         if symbol == key.W:
@@ -332,7 +331,7 @@ def on_mouse_press(x, y, button, modifiers):
       
 def update(t):
     #print(t)
-    PLAYER.move(MAP)
+    PLAYER.step(MAP)
     for GHOST in GHOSTS: 
         GHOST.set_target(PLAYER.X, PLAYER.Y)
         GHOST.step(MAP,t)
