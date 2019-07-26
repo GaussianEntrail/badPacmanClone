@@ -3,13 +3,16 @@ from pyglet.window import mouse, key
 
 WINDOW_WIDTH, WINDOW_HEIGHT = 640, 480
 CELL_WIDTH, CELL_HEIGHT = 16, 16
+CURSOR_X, CURSOR_Y = 0, 0
 TIME_CONST = 120
 window = pyglet.window.Window(width = WINDOW_WIDTH, height = WINDOW_HEIGHT)
 
-def distance(x1,y1,x2,y2):
-    return (y2-y1)**2 + (x2-x1)**2
+def distance(x1,y1,x2,y2, dist_euclid = True):
+    if dist_euclid:
+        return (y2-y1)**2 + (x2-x1)**2
+    else:
+        return abs(y2-y1) + abs(x2-x1)
 
-CURSOR_X, CURSOR_Y = 0,0
 def draw_mouse(x,y):
     #DRAW CURSOR
     X1,Y1 = x * CELL_WIDTH,  y * CELL_HEIGHT,
@@ -96,11 +99,13 @@ class Maze:
                     X1,Y1 = x * CELL_WIDTH, y * CELL_HEIGHT,
                     X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
                     pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )    
-                
-             
-        
     
-    
+
+class GhostAIType:
+    CHASING = 0
+    WANDERING = 1
+    FLEEING = 2
+   
 class Ghost:
     def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 1/60 ):
         self.X, self.Y = X, Y
@@ -111,7 +116,7 @@ class Ghost:
         self.speed = speed
         self.timer = 0
         
-        self.states = ("SEEKING", "WANDERING", "FLEEING")
+        self.states = (GhostAIType.CHASING, GhostAIType.WANDERING, GhostAIType.FLEEING)
         self.state = random.choice(self.states)
            
     def set_target(self,TARGET_X,TARGET_Y):
@@ -161,12 +166,9 @@ class Ghost:
         valid_directions_noreturn_indexes = [d for d in (0,1,2,3) if open_cells[d] and not (self.X + directions[d][0], self.Y + directions[d][1]) == (self.PREV_X, self.PREV_Y)]
         #allow moving back into previous space ONLY if there's no way to move forward otherwise
         valid_directions_indexes = [d for d in (0,1,2,3) if open_cells[d]]
-        #if there's nowhere to go, then don't move
-        if not valid_directions_noreturn_indexes and not valid_directions_indexes: return (0,0)
         #if there's only one way to go then go there
         if len(valid_directions_noreturn_indexes) == 1: return directions[valid_directions_noreturn_indexes[0]]
-        if not valid_directions_noreturn_indexes and len(valid_directions_indexes) == 1: return directions[valid_directions_indexes[0]]
-              
+        if not valid_directions_noreturn_indexes and len(valid_directions_indexes) == 1: return directions[valid_directions_indexes[0]]      
         #If there's more than one direction you can pick from, pick the one that's gonna minimize your distance to your target
         i1, d_min= -1, 99999
         if valid_directions_noreturn_indexes:
@@ -174,13 +176,11 @@ class Ghost:
                 if distances[dir] <= d_min: i1, d_min = dir, distances[dir]
                 
             
-        
         i2, d_min = -1, 99999
         if valid_directions_indexes:
             for dir in valid_directions_indexes:
                 if distances[dir] <= d_min: i2, d_min = dir, distances[dir]
             
-        
         
         if not i1 == -1: return directions[i1]
         else:
@@ -188,8 +188,7 @@ class Ghost:
             else:
                 return (0,0)
             
-        
-        
+                
         return (0,0)
         
     def pick_direction_run_away(self, map):
@@ -237,16 +236,24 @@ class Ghost:
         
         return (0,0)
         
+    def distance_to_target(self):
+        return distance(self.X, self.Y, self.TARGET_X, self.TARGET_Y)
+    
     def is_at_target(self):
         return (self.X,self.Y) == (self.TARGET_X,self.TARGET_Y)
     
     def step(self,map,t):
         #automatic movement to target
+        if self.distance_to_target() >= 40:
+            self.state = GhostAIType.WANDERING
+        else:
+            self.state = GhostAIType.CHASING
+        
         self.timer += t
         if self.timer >= self.speed: 
-            if self.state == "SEEKING":
+            if self.state == GhostAIType.CHASING:
                 dx, dy = self.pick_direction_chase(map)
-            elif self.state == "FLEEING":
+            elif self.state == GhostAIType.FLEEING:
                 dx, dy = self.pick_direction_run_away(map)
                 dx, dy = dx, dy
             else:
@@ -356,8 +363,8 @@ colors_corners = (
     )
 for color, corner in colors_corners:
     gx, gy = pick_open_location_within_range(corner[0], corner[1], list_open, 4)
-    GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 7/TIME_CONST) )
-    
+    GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 12/TIME_CONST) )
+
 
 @window.event
 def on_draw():
