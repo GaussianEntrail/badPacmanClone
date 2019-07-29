@@ -209,7 +209,7 @@ class Ghost:
     def step(self,map,t,player):
         def pick_target(map,player):
             if self.state == GhostAIType.CHASING: 
-                self.set_target(player.PREV_X, player.PREV_Y)  
+                self.set_target(player.X, player.Y)  
             if self.state == GhostAIType.FLEEING: 
                 self.set_target(self.START_X, self.START_Y)   
             if self.state == GhostAIType.FLANKING:
@@ -230,7 +230,7 @@ class Ghost:
             
         self.timer += t
         if self.timer >= self.speed: 
-            if self.is_at_target() or random.random() > 0.7: pick_target(map, player) #Pick a new target once you've reached your target, hopefully
+            if self.is_at_target() or random.random() > 0.5: pick_target(map, player) #Pick a new target once you've reached your target, hopefully
             dx, dy = pick_move_direction(map,player)
             self.move(dx,dy)
             self.timer -= self.speed
