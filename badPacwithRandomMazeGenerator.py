@@ -7,6 +7,9 @@ CURSOR_X, CURSOR_Y = 0, 0
 TIME_CONST = 120
 window = pyglet.window.Window(width = WINDOW_WIDTH, height = WINDOW_HEIGHT)
 
+#TEST_MAP = [line.rstrip('\n') for line in open("D:\\Python36_projects\\test_map.txt","r")]
+
+
 def distance(x1,y1,x2,y2, dist_euclid = True):
     if dist_euclid:
         return (y2-y1)**2 + (x2-x1)**2
@@ -100,14 +103,17 @@ class Maze:
                     X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
                     pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )    
     
-
+           
 class GhostAIType:
     CHASING = 0
     WANDERING = 1
     FLEEING = 2
+    FLANKING = 3
+    PATROLLING = 4
    
 class Ghost:
-    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 1/60 ):
+    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 1/60, state = None):
+        self.START_X, self.START_Y = X, Y
         self.X, self.Y = X, Y
         self.PREV_X, self.PREV_Y = X,Y
         self.TARGET_X, self.TARGET_Y = TARGET_X, TARGET_Y
@@ -116,8 +122,11 @@ class Ghost:
         self.speed = speed
         self.timer = 0
         
-        self.states = (GhostAIType.CHASING, GhostAIType.WANDERING, GhostAIType.FLEEING)
-        self.state = random.choice(self.states)
+        if not state:
+            self.states = (GhostAIType.CHASING, GhostAIType.WANDERING, GhostAIType.FLEEING, GhostAIType.FLANKING, GhostAIType.PATROLLING)
+            self.state = random.choice(self.states)
+        else:
+            self.state = state
            
     def set_target(self,TARGET_X,TARGET_Y):
         self.TARGET_X, self.TARGET_Y = TARGET_X, TARGET_Y
@@ -152,7 +161,7 @@ class Ghost:
         #don't move 
         return (0,0)
 
-    def pick_direction_chase(self, map):
+    def pick_direction_greedy(self, map):
         #If you're already at the target, you're done!
         #If there's no map you're screwed
         if self.is_at_target() or map==None: return (0,0)
@@ -190,76 +199,41 @@ class Ghost:
             
                 
         return (0,0)
-        
-    def pick_direction_run_away(self, map):
-        #If you're already at the target, you're done!
-        #If there's no map you're screwed
-        if self.is_at_target() or map==None: return (0,0)
-        #List of directions: Right, Up, Left, Down
-        directions = [(1,0), (0,1), (-1,0), (0,-1)] 
-        #Check if each neighboring cell is open
-        open_cells = [map.check_cell_open(self.X + DX, self.Y + DY) for DX, DY in directions] 
-        #Distance of each neighboring cell from the target cell
-        distances = [distance(self.X + DX, self.Y + DY, self.TARGET_X, self.TARGET_Y) for DX, DY in directions]
-        #directions that are "open" (can be moved into) without walking into a previous space
-        valid_directions_noreturn_indexes = [d for d in (0,1,2,3) if open_cells[d] and not (self.X + directions[d][0], self.Y + directions[d][1]) == (self.PREV_X, self.PREV_Y)]
-        #allow moving back into previous space ONLY if there's no way to move forward otherwise
-        valid_directions_indexes = [d for d in (0,1,2,3) if open_cells[d]]
-        #if there's nowhere to go, then don't move
-        if not valid_directions_noreturn_indexes and not valid_directions_indexes: return (0,0)
-        #if there's only one way to go then go there
-        if len(valid_directions_noreturn_indexes) == 1: return directions[valid_directions_noreturn_indexes[0]]
-        if not valid_directions_noreturn_indexes and len(valid_directions_indexes) == 1: return directions[valid_directions_indexes[0]]
-              
-        #If there's more than one direction you can pick from, pick the one that's gonna maximize your distance from your target
-        i1, d_min= -1, 0
-        if valid_directions_noreturn_indexes:
-            for dir in valid_directions_noreturn_indexes:
-                if distances[dir] > d_min: i1, d_min = dir, distances[dir]
-                
-            
-        
-        i2, d_min = -1, 0
-        if valid_directions_indexes:
-            for dir in valid_directions_indexes:
-                if distances[dir] > d_min: i2, d_min = dir, distances[dir]
-            
-        
-        
-        if not i1 == -1: return directions[i1]
-        else:
-            if not i2 == -1: return directions[i2]
-            else:
-                return (0,0)
-            
-        
-        
-        return (0,0)
-        
+       
     def distance_to_target(self):
         return distance(self.X, self.Y, self.TARGET_X, self.TARGET_Y)
     
     def is_at_target(self):
         return (self.X,self.Y) == (self.TARGET_X,self.TARGET_Y)
     
-    def step(self,map,t):
-        #automatic movement to target
-        if self.distance_to_target() >= 40:
-            self.state = GhostAIType.WANDERING
-        else:
-            self.state = GhostAIType.CHASING
-        
-        self.timer += t
-        if self.timer >= self.speed: 
-            if self.state == GhostAIType.CHASING:
-                dx, dy = self.pick_direction_chase(map)
-            elif self.state == GhostAIType.FLEEING:
-                dx, dy = self.pick_direction_run_away(map)
-                dx, dy = dx, dy
+    def step(self,map,t,player):
+        def pick_target(map,player):
+            if self.state == GhostAIType.CHASING: 
+                self.set_target(player.PREV_X, player.PREV_Y)  
+            if self.state == GhostAIType.FLEEING: 
+                self.set_target(self.START_X, self.START_Y)   
+            if self.state == GhostAIType.FLANKING:
+                X, Y = player.X + (player.VX * 4), player.Y + (player.VY * 4)
+                self.set_target(X,Y)
+            if self.state == GhostAIType.PATROLLING or self.state == GhostAIType.WANDERING:
+                X, Y = random.choice(map.get_list_positions_open())
+                self.set_target(X,Y)
+    
+        def pick_move_direction(map,player):
+            dx,dy = 0,0
+            if self.state in (GhostAIType.CHASING, GhostAIType.FLEEING, GhostAIType.FLANKING, GhostAIType.PATROLLING):  
+                dx, dy = self.pick_direction_greedy(map)
             else:
                 dx, dy = self.pick_direction_random(map)
+            
+            return dx, dy 
+            
+        self.timer += t
+        if self.timer >= self.speed: 
+            if self.is_at_target() or random.random() > 0.7: pick_target(map, player) #Pick a new target once you've reached your target, hopefully
+            dx, dy = pick_move_direction(map,player)
             self.move(dx,dy)
-            self.timer = 0
+            self.timer -= self.speed
         
         
     def hasnt_moved(self):
@@ -355,15 +329,15 @@ PLAYER = PlayerObject(X= px, Y= py, color = (255,255,0))
 
 #Spawn the ghosts in the corners
 GHOSTS = []
-colors_corners = (
-    ((128,0,255), (1,1)),
-    ((255,128,0), (MAP.width-2,1)),
-    ((0,255,128), (1,MAP.height-2)),
-    ((255,0,128), (MAP.width-2,MAP.height-2))
+colors_corners_states = (
+    ((128,0,255), (1,1), GhostAIType.FLANKING),
+    ((255,128,0), (MAP.width-2,1), GhostAIType.WANDERING),
+    ((0,255,128), (1,MAP.height-2), GhostAIType.PATROLLING),
+    ((255,0,128), (MAP.width-2,MAP.height-2), GhostAIType.CHASING)
     )
-for color, corner in colors_corners:
+for color, corner, state in colors_corners_states:
     gx, gy = pick_open_location_within_range(corner[0], corner[1], list_open, 4)
-    GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 12/TIME_CONST) )
+    GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 12/TIME_CONST, state = state) )
 
 
 @window.event
@@ -400,8 +374,7 @@ def on_mouse_press(x, y, button, modifiers):
 def update(t):
     PLAYER.step(MAP)
     for GHOST in GHOSTS: 
-        GHOST.set_target(PLAYER.X, PLAYER.Y)
-        GHOST.step(MAP,t)
+        GHOST.step(MAP,t,PLAYER)
     pass
     
 pyglet.clock.schedule_interval(update, 1/TIME_CONST)
