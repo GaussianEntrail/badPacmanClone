@@ -107,7 +107,7 @@ class Maze:
         start_x, end_x = (x1, x2) if x2 > x1 else (x2, x1)
         start_y, end_y = (y1, y2) if y2 > y1 else (y2, y1)
         d = numpy.sqrt( distance(start_x, start_y, end_x, end_y) )
-        
+        #Unfinished, but it should move "along" the line between (x1,y1) and (x2,y2) and if it runs into an obstacle it will return false
         
         return can_see
     
