@@ -1,5 +1,6 @@
 import numpy, random, pyglet
 from pyglet.window import mouse, key
+import pyglet.graphics
 
 WINDOW_WIDTH, WINDOW_HEIGHT = 640, 480
 CELL_WIDTH, CELL_HEIGHT = 16, 16
@@ -12,6 +13,7 @@ window = pyglet.window.Window(width = WINDOW_WIDTH, height = WINDOW_HEIGHT)
 
 def distance(x1,y1,x2,y2, dist_euclid = True):
     if dist_euclid:
+        #actually returns square of distance
         return (y2-y1)**2 + (x2-x1)**2
     else:
         return abs(y2-y1) + abs(x2-x1)
@@ -38,8 +40,12 @@ class Maze:
         self.height = height
         self.width = width
         self.maze = numpy.ones((height,width), dtype = int)
-        self.generateMaze()
         
+        #self.vertex_list = pyglet.graphics.vertex_list(self.width * self.height, 'v2i', 'c3B')
+        self.maze_batch_polygons = pyglet.graphics.Batch()
+        
+        self.generateMaze()
+           
     def generateMaze(self):
         self.stack.append( Node(1,1) )
         while self.stack:
@@ -50,8 +56,12 @@ class Maze:
                 self.randomlyAddNodesToStack(neighbors)
             
         
-        
-        
+        #Maybe also do the addition of polygons to batches here too?
+        grid_coords = lambda x,y: [x * CELL_WIDTH, y * CELL_HEIGHT, (x * CELL_WIDTH) + CELL_WIDTH, (y * CELL_WIDTH) + CELL_HEIGHT]
+        for x,y in [(x,y) for x in range(self.width) for y in range(self.height) if self.maze[y][x]]:
+            X1, Y1, X2, Y2 = grid_coords(x,y)
+            self.maze_batch_polygons.add( 4 ,pyglet.gl.GL_QUADS, None, ('v2i', [X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )  
+                
     def validNextNode(self, node):
         numNeighboringOnes = 0
         coords = [(node.x-1,node.y-1),(node.x-1,node.y),(node.x-1,node.y+1), (node.x,node.y-1) ,(node.x,node.y+1), (node.x+1,node.y-1),(node.x+1,node.y),(node.x+1,node.y+1)]
@@ -60,7 +70,7 @@ class Maze:
     
     def randomlyAddNodesToStack(self, nodes):
         random.shuffle(nodes)
-        for node in nodes: self.stack.append(node)
+        self.stack += nodes #for node in nodes: self.stack.append(node)
         
     def findNeighbors(self, node):
         coords = [(node.x-1,node.y-1),(node.x-1,node.y),(node.x-1,node.y+1), (node.x,node.y-1) ,(node.x,node.y+1), (node.x+1,node.y-1),(node.x+1,node.y),(node.x+1,node.y+1)]
@@ -90,20 +100,32 @@ class Maze:
             return self.maze[y][x] == 0
                 
         return False
+        
+    def line_of_sight(self,x1,y1,x2,y2):
+        #Check if you can "see" a particular cell from another cell
+        can_see = False
+        start_x, end_x = (x1, x2) if x2 > x1 else (x2, x1)
+        start_y, end_y = (y1, y2) if y2 > y1 else (y2, y1)
+        d = numpy.sqrt( distance(start_x, start_y, end_x, end_y) )
+        
+        
+        return can_see
     
     def get_list_positions_open(self):
         return [(x,y) for y in range(self.height) for x in range(self.width) if self.maze[y][x] == 0]
     
     def draw(self):
+        self.maze_batch_polygons.draw()
+        '''
         for y in range(self.height):
             for x in range(self.width): 
                 currentCell = self.maze[y][x]
                 if currentCell == 1:
                     X1,Y1 = x * CELL_WIDTH, y * CELL_HEIGHT,
                     X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
-                    pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )    
-    
-           
+                    pyglet.graphics.draw(4 ,pyglet.gl.GL_QUADS, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )    
+        '''
+          
 class GhostAIType:
     CHASING = 0
     WANDERING = 1
@@ -112,7 +134,7 @@ class GhostAIType:
     PATROLLING = 4
    
 class Ghost:
-    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 1/60, state = None):
+    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 1/60, state = GhostAIType.PATROLLING):
         self.START_X, self.START_Y = X, Y
         self.X, self.Y = X, Y
         self.PREV_X, self.PREV_Y = X,Y
@@ -207,6 +229,7 @@ class Ghost:
         return (self.X,self.Y) == (self.TARGET_X,self.TARGET_Y)
     
     def step(self,map,t,player):
+
         def pick_target(map,player):
             if self.state == GhostAIType.CHASING: 
                 self.set_target(player.X, player.Y)  
@@ -230,12 +253,11 @@ class Ghost:
             
         self.timer += t
         if self.timer >= self.speed: 
-            if self.is_at_target() or random.random() > 0.5: pick_target(map, player) #Pick a new target once you've reached your target, hopefully
+            if self.is_at_target() or random.random() > 0.7: pick_target(map, player) #Pick a new target once you've reached your target, hopefully
             dx, dy = pick_move_direction(map,player)
             self.move(dx,dy)
             self.timer -= self.speed
-        
-        
+                
     def hasnt_moved(self):
         return (self.X, self.Y) == (self.PREV_X, self.PREV_Y)
     
@@ -258,8 +280,6 @@ class Ghost:
             X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (255,255,0) * 4 ) )
         '''
-
-
 
 class PlayerObject:
     def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,255,0)):
@@ -312,6 +332,11 @@ class PlayerObject:
             X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', self.trailcolor * 4 ) )   
         pass
+             
+class CollectableObject:
+    def __init__(self, x, y, value):
+        self.x, self.y = x, y
+        self.value = value
         
         
 
