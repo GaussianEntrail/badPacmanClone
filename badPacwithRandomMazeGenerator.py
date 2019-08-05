@@ -59,9 +59,9 @@ class Maze:
         #Maybe also do the addition of polygons to batches here too?
         #What if I were to use sprites instead?
         for x,y in [(x,y) for x in range(self.width) for y in range(self.height) if self.maze[y][x]]:
-            X1, Y1, X2, Y2 = self.get_coord_rect(x,y)
-            self.maze_batch_polygons.add( 4 ,pyglet.gl.GL_QUADS, None, ('v2i', [X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )  
-                
+            X1, Y1, X2, Y2 = self.getCoordRect(x,y)
+            self.maze_batch_polygons.add( 4 ,pyglet.gl.GL_QUADS, None, ('v2i', [ X1,Y1, X2,Y1, X2,Y2, X1,Y2 ] ), ('c3B', (0,255,0) * 4 ) )  
+                    
     def validNextNode(self, node):
         numNeighboringOnes = 0
         coords = [(node.x-1,node.y-1),(node.x-1,node.y),(node.x-1,node.y+1), (node.x,node.y-1) ,(node.x,node.y+1), (node.x+1,node.y-1),(node.x+1,node.y),(node.x+1,node.y+1)]
@@ -94,7 +94,7 @@ class Maze:
         
         print(maze_string)
     
-    def check_cell_open(self,x,y):
+    def checkCellOpen(self,x,y):
         #Check if a particular cell is open/free
         if x in range(self.width) and y in range(self.height):
             return self.maze[y][x] == 0
@@ -111,14 +111,16 @@ class Maze:
         
         return can_see
     
-    def get_list_positions_open(self):
+    def getListPositionsOpen(self):
         return [(x,y) for y in range(self.height) for x in range(self.width) if self.maze[y][x] == 0]
 
-    def test_change_polygons(self,x,y):
-        rect_to_alter = get_coord_rect(x,y)
+    def testChangePolygons(self,x,y):
+        rect_to_alter = getCoordRect(x,y)
+        
+        pass
         
 
-    def get_coord_rect(self,x,y):
+    def getCoordRect(self,x,y):
         #returns the rect
         if x in range(self.width) and y in range(self.height):
             return [x * CELL_WIDTH, y * CELL_HEIGHT, (x * CELL_WIDTH) + CELL_WIDTH, (y * CELL_WIDTH) + CELL_HEIGHT]
@@ -173,7 +175,7 @@ class Ghost:
     def pick_direction_random(self, map):
         #test method
         directions = [(1,0), (0,1), (-1,0), (0,-1)] #List of directions: Right, Up, Left, Down
-        open_cells = [map.check_cell_open(self.X + DX, self.Y + DY) for DX, DY in directions] #Check if each neighboring cell is open
+        open_cells = [map.checkCellOpen(self.X + DX, self.Y + DY) for DX, DY in directions] #Check if each neighboring cell is open
         #directions that can be moved in
         valid_directions_noreturn_indexes = [d for d in (0,1,2,3) if open_cells[d] and not (self.X + directions[d][0], self.Y + directions[d][1]) == (self.PREV_X, self.PREV_Y)]
         #allow moving back into previous space ONLY if there's no way to move forward
@@ -202,7 +204,7 @@ class Ghost:
         #List of directions: Right, Up, Left, Down
         directions = [(1,0), (0,1), (-1,0), (0,-1)] 
         #Check if each neighboring cell is open
-        open_cells = [map.check_cell_open(self.X + DX, self.Y + DY) for DX, DY in directions] 
+        open_cells = [map.checkCellOpen(self.X + DX, self.Y + DY) for DX, DY in directions] 
         #Distance of each neighboring cell from the target cell
         distances = [distance(self.X + DX, self.Y + DY, self.TARGET_X, self.TARGET_Y) for DX, DY in directions]
         #directions that are "open" (can be moved into) without walking into a previous space
@@ -251,7 +253,7 @@ class Ghost:
                 X, Y = player.X + (player.VX * 4), player.Y + (player.VY * 4)
                 self.set_target(X,Y)
             if self.state == GhostAIType.PATROLLING or self.state == GhostAIType.WANDERING:
-                X, Y = random.choice(map.get_list_positions_open())
+                X, Y = random.choice(map.getListPositionsOpen())
                 self.set_target(X,Y)
     
         def pick_move_direction(map,player):
@@ -304,7 +306,7 @@ class PlayerObject:
         
     def step(self, map):
         self.move(self.VX,self.VY)
-        if not map.check_cell_open(self.X,self.Y): self.X, self.Y = self.PREV_X, self.PREV_Y
+        if not map.checkCellOpen(self.X,self.Y): self.X, self.Y = self.PREV_X, self.PREV_Y
         
     def move(self, DX, DY):
         #Move in a particular direction
@@ -349,7 +351,7 @@ class PlayerObject:
 
 
 MAP = Maze()
-list_open = MAP.get_list_positions_open()
+list_open = MAP.getListPositionsOpen()
 
 #some sort of algorithm to find some open locations 
 def pick_open_location_within_range(x0, y0, list_open, r):
@@ -398,7 +400,7 @@ def on_mouse_motion(x,y,dx,dy):
 def on_mouse_press(x, y, button, modifiers):
     
     if button == mouse.LEFT:
-        if MAP.check_cell_open(CURSOR_X, CURSOR_Y):
+        if MAP.checkCellOpen(CURSOR_X, CURSOR_Y):
             for GHOST in GHOSTS: GHOST.set_target(CURSOR_X, CURSOR_Y)
             
            
