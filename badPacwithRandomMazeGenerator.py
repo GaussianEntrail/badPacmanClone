@@ -57,9 +57,9 @@ class Maze:
             
         
         #Maybe also do the addition of polygons to batches here too?
-        grid_coords = lambda x,y: [x * CELL_WIDTH, y * CELL_HEIGHT, (x * CELL_WIDTH) + CELL_WIDTH, (y * CELL_WIDTH) + CELL_HEIGHT]
+        #What if I were to use sprites instead?
         for x,y in [(x,y) for x in range(self.width) for y in range(self.height) if self.maze[y][x]]:
-            X1, Y1, X2, Y2 = grid_coords(x,y)
+            X1, Y1, X2, Y2 = self.get_coord_rect(x,y)
             self.maze_batch_polygons.add( 4 ,pyglet.gl.GL_QUADS, None, ('v2i', [X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (0,255,0) * 4 ) )  
                 
     def validNextNode(self, node):
@@ -107,12 +107,23 @@ class Maze:
         start_x, end_x = (x1, x2) if x2 > x1 else (x2, x1)
         start_y, end_y = (y1, y2) if y2 > y1 else (y2, y1)
         d = numpy.sqrt( distance(start_x, start_y, end_x, end_y) )
-        #Unfinished, but it should move "along" the line between (x1,y1) and (x2,y2) and if it runs into an obstacle it will return false
+        
         
         return can_see
     
     def get_list_positions_open(self):
         return [(x,y) for y in range(self.height) for x in range(self.width) if self.maze[y][x] == 0]
+
+    def test_change_polygons(self,x,y):
+        rect_to_alter = get_coord_rect(x,y)
+        
+
+    def get_coord_rect(self,x,y):
+        #returns the rect
+        if x in range(self.width) and y in range(self.height):
+            return [x * CELL_WIDTH, y * CELL_HEIGHT, (x * CELL_WIDTH) + CELL_WIDTH, (y * CELL_WIDTH) + CELL_HEIGHT]
+                
+        return [0, 0, CELL_WIDTH, CELL_HEIGHT]
     
     def draw(self):
         self.maze_batch_polygons.draw()
@@ -133,6 +144,7 @@ class GhostAIType:
     FLANKING = 3
     PATROLLING = 4
    
+#At some point, I will make these sprite objects and add them to a batch
 class Ghost:
     def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 1/60, state = GhostAIType.PATROLLING):
         self.START_X, self.START_Y = X, Y
@@ -332,13 +344,9 @@ class PlayerObject:
             X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', self.trailcolor * 4 ) )   
         pass
-             
-class CollectableObject:
-    def __init__(self, x, y, value):
-        self.x, self.y = x, y
-        self.value = value
-        
-        
+
+#There should be some sort of collectible or something
+
 
 MAP = Maze()
 list_open = MAP.get_list_positions_open()
@@ -358,11 +366,10 @@ colors_corners_states = (
     ((128,0,255), (1,1), GhostAIType.FLANKING),
     ((255,128,0), (MAP.width-2,1), GhostAIType.WANDERING),
     ((0,255,128), (1,MAP.height-2), GhostAIType.PATROLLING),
-    ((255,0,128), (MAP.width-2,MAP.height-2), GhostAIType.CHASING)
-    )
+    ((255,0,128), (MAP.width-2,MAP.height-2), GhostAIType.CHASING) )
 for color, corner, state in colors_corners_states:
     gx, gy = pick_open_location_within_range(corner[0], corner[1], list_open, 4)
-    GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 12/TIME_CONST, state = state) )
+    GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 13/TIME_CONST, state = state) )
 
 
 @window.event
