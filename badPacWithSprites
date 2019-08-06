@@ -5,7 +5,7 @@ import pyglet.graphics
 WINDOW_WIDTH, WINDOW_HEIGHT = 640, 480
 CELL_WIDTH, CELL_HEIGHT = 16, 16
 CURSOR_X, CURSOR_Y = 0, 0
-TIME_CONST = 120
+TIME_CONST = 60
 window = pyglet.window.Window(width = WINDOW_WIDTH, height = WINDOW_HEIGHT)
 
 #TEST_MAP = [line.rstrip('\n') for line in open("D:\\Python36_projects\\test_map.txt","r")]
@@ -302,28 +302,30 @@ class Ghost (pyglet.sprite.Sprite):
             X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (255,255,0) * 4 ) )
     '''
-
 class PlayerObject(pyglet.sprite.Sprite):
-    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,255,0), batch = None):
+    def __init__(self, X = 1, Y = 1, speed = 4/TIME_CONST, color = (255,255,0), batch = None):
         super().__init__(player_sprite, x = X * CELL_WIDTH, y = Y * CELL_HEIGHT, batch = batch)
         self.X, self.Y = X, Y
         self.PREV_X, self.PREV_Y = X, Y
         self.VX, self.VY = 0,0
-        self.timerX, self.timerY = 0,0
+        self.timer = 0
+        self.speed = speed
         self.color = color
         self.trailcolor = tuple([x//2 for x in color])    
         
-    def step(self, map, coins = None):
-        self.move(self.VX, self.VY, map, coins)
+    def step(self, map, t, coins = None):
+        if self.timer < self.speed:
+            self.timer += t
+        else:
+            self.move(self.VX, self.VY, map, coins)
+            self.timer -= self.speed
         
     def move(self, DX, DY, map, coins = None):
         #Move in a particular direction
-        self.PREV_X, self.PREV_Y = self.X, self.Y
-        self.X, self.Y = self.X+self.VX, self.Y+self.VY
-        
-        #Can't move?
-        if not map.checkCellOpen(self.X,self.Y): self.X, self.Y = self.PREV_X, self.PREV_Y
-        
+        if map.checkCellOpen(self.X+self.VX, self.Y+self.VY): 
+            self.PREV_X, self.PREV_Y = self.X, self.Y
+            self.X, self.Y = self.X+self.VX, self.Y+self.VY
+                
         if coins:
             #collect coins
             coins.collect(self.X, self.Y) 
@@ -403,9 +405,7 @@ class moneyObjectCollection():
             for coin in possible_coins:
                 coin.delete()
                 self.coins.remove(coin)
-                print("collect coin!")
-            
-                
+                        
 class moneyObject(pyglet.sprite.Sprite):
     def __init__(self, x, y, batch = None):
         super().__init__(coin_sprite, x, y, batch = batch)
@@ -426,7 +426,7 @@ def pick_open_location_within_range(x0, y0, list_open, r):
 
 #Spawn the player in an open space in the center of the maze
 px, py = pick_open_location_within_range(MAP.width//2, MAP.height//2, list_open, 4)
-PLAYER = PlayerObject(X= px, Y= py, color = (255,255,0), batch = character_sprites_batch)
+PLAYER = PlayerObject(X= px, Y= py, speed = 2/TIME_CONST, color = (255,255,0), batch = character_sprites_batch)
 
 #Spawn the ghosts in the corners
 GHOSTS = []
@@ -437,7 +437,7 @@ colors_corners_states = (
     ((255,0,128), (MAP.width-2,MAP.height-2), GhostAIType.CHASING) )
 for color, corner, state in colors_corners_states:
     gx, gy = pick_open_location_within_range(corner[0], corner[1], list_open, 4)
-    GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 13/TIME_CONST, state = state, batch = character_sprites_batch) )
+    GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 6/TIME_CONST, state = state, batch = character_sprites_batch) )
 
 #Spawn coins
 MONEY = moneyObjectCollection()
@@ -478,7 +478,7 @@ def on_mouse_press(x, y, button, modifiers):
            
       
 def update(t):
-    PLAYER.step(MAP, MONEY)
+    PLAYER.step(MAP, t, MONEY)
     for GHOST in GHOSTS: 
         GHOST.step(MAP,t,PLAYER)
     pass
