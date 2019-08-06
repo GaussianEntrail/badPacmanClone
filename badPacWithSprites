@@ -14,8 +14,10 @@ window = pyglet.window.Window(width = WINDOW_WIDTH, height = WINDOW_HEIGHT)
 wall_sprite = pyglet.image.load("resources//kabe.bmp")
 ghost_sprite = pyglet.image.load("resources//oni.bmp")
 player_sprite = pyglet.image.load("resources//akuma.bmp")
-character_sprites_batch = pyglet.graphics.Batch()
+coin_sprite = pyglet.image.load("resources//kane.bmp")
 
+character_sprites_batch = pyglet.graphics.Batch()
+object_sprites_batch = pyglet.graphics.Batch()
 
 def distance(x1,y1,x2,y2, dist_euclid = True):
     if dist_euclid:
@@ -61,13 +63,15 @@ class Maze:
                 neighbors = self.findNeighbors(next)
                 self.randomlyAddNodesToStack(neighbors)
             
-        
         #Maybe also do the addition of polygons to batches here too?
         #What if I were to use sprites instead?
         for x,y in [ (x,y) for x in range(self.width) for y in range(self.height) if self.maze[y][x] ]:
-            X1, Y1, X2, Y2 = self.getCoordRect(x,y)
+            #X1, Y1, X2, Y2 = self.getCoordRect(x,y)
             #self.maze_batch.add( 4 ,pyglet.gl.GL_QUADS, None, ('v2i', [ X1,Y1, X2,Y1, X2,Y2, X1,Y2 ] ), ('c3B', (0,255,0) * 4 ) )  
-            self.sprites.append( pyglet.sprite.Sprite(wall_sprite, X1, Y1, batch = self.maze_batch ) )
+            X, Y = x * CELL_WIDTH, y * CELL_HEIGHT
+            wall = pyglet.sprite.Sprite(wall_sprite, X, Y, batch = self.maze_batch)
+            wall.color = (128,255,0)
+            self.sprites.append(wall)
                             
     def validNextNode(self, node):
         numNeighboringOnes = 0
@@ -108,7 +112,7 @@ class Maze:
                 
         return False
         
-    def line_of_sight(self,x1,y1,x2,y2):
+    def lineOfSight(self,x1,y1,x2,y2):
         #Check if you can "see" a particular cell from another cell
         can_see = False
         start_x, end_x = (x1, x2) if x2 > x1 else (x2, x1)
@@ -120,12 +124,6 @@ class Maze:
     
     def getListPositionsOpen(self):
         return [(x,y) for y in range(self.height) for x in range(self.width) if self.maze[y][x] == 0]
-
-    def testChangePolygons(self,x,y):
-        rect_to_alter = getCoordRect(x,y)
-        
-        pass
-        
 
     def getCoordRect(self,x,y):
         #returns the rect
@@ -173,7 +171,7 @@ class Ghost (pyglet.sprite.Sprite):
         else:
             self.state = state
            
-    def set_target(self,TARGET_X,TARGET_Y):
+    def setTarget(self,TARGET_X,TARGET_Y):
         self.TARGET_X, self.TARGET_Y = TARGET_X, TARGET_Y
         
     def move(self,DX,DY):
@@ -182,7 +180,7 @@ class Ghost (pyglet.sprite.Sprite):
         self.X, self.Y = self.X+DX, self.Y+DY 
         self.x,self.y = self.X * CELL_WIDTH, self.Y * CELL_HEIGHT
       
-    def pick_direction_random(self, map):
+    def pickDirectionRandom(self, map):
         #test method
         directions = [(1,0), (0,1), (-1,0), (0,-1)] #List of directions: Right, Up, Left, Down
         open_cells = [map.checkCellOpen(self.X + DX, self.Y + DY) for DX, DY in directions] #Check if each neighboring cell is open
@@ -207,10 +205,10 @@ class Ghost (pyglet.sprite.Sprite):
         #don't move 
         return (0,0)
 
-    def pick_direction_greedy(self, map):
+    def pickDirectionGreedy(self, map):
         #If you're already at the target, you're done!
         #If there's no map you're screwed
-        if self.is_at_target() or map==None: return (0,0)
+        if self.isAtTarget() or map==None: return (0,0)
         #List of directions: Right, Up, Left, Down
         directions = [(1,0), (0,1), (-1,0), (0,-1)] 
         #Check if each neighboring cell is open
@@ -246,43 +244,43 @@ class Ghost (pyglet.sprite.Sprite):
                 
         return (0,0)
        
-    def distance_to_target(self):
+    def distanceToTarget(self):
         return distance(self.X, self.Y, self.TARGET_X, self.TARGET_Y)
     
-    def is_at_target(self):
+    def isAtTarget(self):
         return (self.X,self.Y) == (self.TARGET_X,self.TARGET_Y)
     
     def step(self,map,t,player):
 
-        def pick_target(map,player):
+        def pickTarget(map,player):
             if self.state == GhostAIType.CHASING: 
-                self.set_target(player.X, player.Y)  
+                self.setTarget(player.X, player.Y)  
             if self.state == GhostAIType.FLEEING: 
-                self.set_target(self.START_X, self.START_Y)   
+                self.setTarget(self.START_X, self.START_Y)   
             if self.state == GhostAIType.FLANKING:
                 X, Y = player.X + (player.VX * 4), player.Y + (player.VY * 4)
-                self.set_target(X,Y)
+                self.setTarget(X,Y)
             if self.state == GhostAIType.PATROLLING or self.state == GhostAIType.WANDERING:
                 X, Y = random.choice(map.getListPositionsOpen())
-                self.set_target(X,Y)
+                self.setTarget(X,Y)
     
-        def pick_move_direction(map,player):
+        def pickDirection(map,player):
             dx,dy = 0,0
             if self.state in (GhostAIType.CHASING, GhostAIType.FLEEING, GhostAIType.FLANKING, GhostAIType.PATROLLING):  
-                dx, dy = self.pick_direction_greedy(map)
+                dx, dy = self.pickDirectionGreedy(map)
             else:
-                dx, dy = self.pick_direction_random(map)
+                dx, dy = self.pickDirectionRandom(map)
             
             return dx, dy 
             
         self.timer += t
         if self.timer >= self.speed: 
-            if self.is_at_target() or random.random() > 0.7: pick_target(map, player) #Pick a new target once you've reached your target, hopefully
-            dx, dy = pick_move_direction(map,player)
+            if self.isAtTarget() or random.random() > 0.7: pickTarget(map, player) #Pick a new target once you've reached your target, hopefully
+            dx, dy = pickDirection(map,player)
             self.move(dx,dy)
             self.timer -= self.speed
                 
-    def hasnt_moved(self):
+    def hasntMoved(self):
         return (self.X, self.Y) == (self.PREV_X, self.PREV_Y)
     
     '''
@@ -293,13 +291,13 @@ class Ghost (pyglet.sprite.Sprite):
         pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', self.color * 4 ) )
         
         #Draw a trail
-        if not self.hasnt_moved():
+        if not self.hasntMoved():
             X1,Y1 = self.PREV_X * CELL_WIDTH, self.PREV_Y * CELL_HEIGHT
             X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', self.trailcolor * 4 ) )    
         
         #Draw target
-        if not self.is_at_target():
+        if not self.isAtTarget():
             X1,Y1 = self.TARGET_X * CELL_WIDTH, self.TARGET_Y * CELL_HEIGHT
             X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (255,255,0) * 4 ) )
@@ -315,14 +313,25 @@ class PlayerObject(pyglet.sprite.Sprite):
         self.color = color
         self.trailcolor = tuple([x//2 for x in color])    
         
-    def step(self, map):
-        self.move(self.VX,self.VY)
-        if not map.checkCellOpen(self.X,self.Y): self.X, self.Y = self.PREV_X, self.PREV_Y
+    def step(self, map, coins = None):
+        self.move(self.VX, self.VY, map, coins)
         
-    def move(self, DX, DY):
+    def move(self, DX, DY, map, coins = None):
         #Move in a particular direction
         self.PREV_X, self.PREV_Y = self.X, self.Y
         self.X, self.Y = self.X+self.VX, self.Y+self.VY
+        
+        #Can't move?
+        if not map.checkCellOpen(self.X,self.Y): self.X, self.Y = self.PREV_X, self.PREV_Y
+        
+        if coins:
+            #collect coins
+            ids = coins.getCoinIndex(self.X, self.Y)
+            if ids:
+                for id in ids: coins.collect(index) 
+            
+                
+        self.x, self.y = self.X * CELL_WIDTH, self.Y * CELL_HEIGHT
         
     def on_key_press(self,symbol,map):
         if symbol == key.W:
@@ -342,7 +351,7 @@ class PlayerObject(pyglet.sprite.Sprite):
         if symbol in (key.W, key.S): self.VY = 0 #Cease vertical movement
         if symbol in (key.D, key.A): self.VX = 0 #Cease horizontal movement
       
-    def hasnt_moved(self):
+    def hasntMoved(self):
         return (self.X, self.Y) == (self.PREV_X, self.PREV_Y)    
     
     '''
@@ -353,7 +362,7 @@ class PlayerObject(pyglet.sprite.Sprite):
         pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', self.color * 4 ) )
         
         #Draw a trail
-        if not self.hasnt_moved():
+        if not self.hasntMoved():
             X1,Y1 = self.PREV_X * CELL_WIDTH, self.PREV_Y * CELL_HEIGHT
             X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', self.trailcolor * 4 ) )   
@@ -361,7 +370,50 @@ class PlayerObject(pyglet.sprite.Sprite):
     '''
 
 #There should be some sort of collectible or something
+class moneyObjectCollection():
+    def __init__(self):
+        #Contains a list of coins and their map positions
+        self.coins = []
+        self.coins_limit = 200
+        
+    def generateCoins(self, map, list_avoid_positions = None):
+        valid_spaces_to_spawn_coins = map.getListPositionsOpen()
+        if len(valid_spaces_to_spawn_coins) > self.coins_limit:
+            spawnpoints = random.sample(valid_spaces_to_spawn_coins, self.coins_limit)
+        else:
+            spawnpoints = valid_spaces_to_spawn_coins
+        
+        random.shuffle(spawnpoints)
+        
+        c = 0
+        for X,Y in spawnpoints:
+            self.coins.append( (c, moneyObject(X * CELL_WIDTH, Y *CELL_HEIGHT, batch = object_sprites_batch)) )
+            c+= 1
+                
+    def checkCoin(self,x,y):
+        return len([index for index, coin in self.coins if (coin.x, coin.y) == (x, y)]) > 0
+        
+    def getCoinIndex(self,x,y):
+        return [index for index, coin in self.coins if (coin.x, coin.y) == (x, y)]
 
+    
+    def isListEmpty(self):
+        return len(self.coins) <= 0
+        
+    def collect(self, index):
+        #Remove a coin from the list of coins in the map
+        self.coins[index][1].delete()
+        del(self.coins[index])
+        
+class moneyObject(pyglet.sprite.Sprite):
+    def __init__(self, x, y, batch = None):
+        super().__init__(coin_sprite, x, y, batch = batch)
+        self.colors = ( (255,128,128),(255,255,128),(128,255,128),(128,255,255),(128,128,255),(255,128,255) )
+        self.changeColor()
+        
+    def changeColor(self):
+        self.color = random.choice(self.colors)
+        
 
 MAP = Maze()
 list_open = MAP.getListPositionsOpen()
@@ -386,13 +438,19 @@ for color, corner, state in colors_corners_states:
     gx, gy = pick_open_location_within_range(corner[0], corner[1], list_open, 4)
     GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 13/TIME_CONST, state = state, batch = character_sprites_batch) )
 
+#Spawn coins
+MONEY = moneyObjectCollection()
+MONEY.generateCoins(MAP)
 
 @window.event
 def on_draw():
     window.clear()
     MAP.draw()
-    for GHOST in GHOSTS: GHOST.draw()
-    PLAYER.draw()
+    object_sprites_batch.draw()
+    character_sprites_batch.draw()
+    
+    #for GHOST in GHOSTS: GHOST.draw()
+    #PLAYER.draw()
     draw_mouse(CURSOR_X, CURSOR_Y)
 
 
@@ -414,7 +472,7 @@ def on_mouse_press(x, y, button, modifiers):
     
     if button == mouse.LEFT:
         if MAP.checkCellOpen(CURSOR_X, CURSOR_Y):
-            for GHOST in GHOSTS: GHOST.set_target(CURSOR_X, CURSOR_Y)
+            for GHOST in GHOSTS: GHOST.setTarget(CURSOR_X, CURSOR_Y)
             
            
       
