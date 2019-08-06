@@ -326,9 +326,8 @@ class PlayerObject(pyglet.sprite.Sprite):
         
         if coins:
             #collect coins
-            ids = coins.getCoinIndex(self.X, self.Y)
-            if ids:
-                for id in ids: coins.collect(index) 
+            coins.collect(self.X, self.Y) 
+            
             
                 
         self.x, self.y = self.X * CELL_WIDTH, self.Y * CELL_HEIGHT
@@ -385,26 +384,28 @@ class moneyObjectCollection():
         
         random.shuffle(spawnpoints)
         
-        c = 0
         for X,Y in spawnpoints:
-            self.coins.append( (c, moneyObject(X * CELL_WIDTH, Y *CELL_HEIGHT, batch = object_sprites_batch)) )
-            c+= 1
-                
+            self.coins.append( moneyObject(X * CELL_WIDTH, Y * CELL_HEIGHT, batch = object_sprites_batch) )
+                        
     def checkCoin(self,x,y):
-        return len([index for index, coin in self.coins if (coin.x, coin.y) == (x, y)]) > 0
+        return len([coin for coin in self.coins if (coin.x, coin.y) == (x, y)]) > 0
         
     def getCoinIndex(self,x,y):
-        return [index for index, coin in self.coins if (coin.x, coin.y) == (x, y)]
-
+        return [coin for coin in self.coins if (coin.x, coin.y) == (x * CELL_WIDTH, y * CELL_HEIGHT)]
     
     def isListEmpty(self):
         return len(self.coins) <= 0
         
-    def collect(self, index):
+    def collect(self, x, y):
         #Remove a coin from the list of coins in the map
-        self.coins[index][1].delete()
-        del(self.coins[index])
-        
+        possible_coins = [coin for coin in self.coins if (coin.x, coin.y) == (x * CELL_WIDTH, y* CELL_HEIGHT)]
+        if possible_coins:
+            for coin in possible_coins:
+                coin.delete()
+                self.coins.remove(coin)
+                print("collect coin!")
+            
+                
 class moneyObject(pyglet.sprite.Sprite):
     def __init__(self, x, y, batch = None):
         super().__init__(coin_sprite, x, y, batch = batch)
@@ -477,7 +478,7 @@ def on_mouse_press(x, y, button, modifiers):
            
       
 def update(t):
-    PLAYER.step(MAP)
+    PLAYER.step(MAP, MONEY)
     for GHOST in GHOSTS: 
         GHOST.step(MAP,t,PLAYER)
     pass
