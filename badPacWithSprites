@@ -13,6 +13,7 @@ window = pyglet.window.Window(width = WINDOW_WIDTH, height = WINDOW_HEIGHT)
 #load some sprites
 wall_sprite = pyglet.image.load("resources//kabe.bmp")
 ghost_sprite = pyglet.image.load("resources//oni.bmp")
+player_sprite = pyglet.image.load("resources//akuma.bmp")
 character_sprites_batch = pyglet.graphics.Batch()
 
 
@@ -283,6 +284,7 @@ class Ghost (pyglet.sprite.Sprite):
                 
     def hasnt_moved(self):
         return (self.X, self.Y) == (self.PREV_X, self.PREV_Y)
+    
     '''
     def draw(self):
         #Draw self
@@ -303,8 +305,9 @@ class Ghost (pyglet.sprite.Sprite):
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (255,255,0) * 4 ) )
     '''
 
-class PlayerObject:
-    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,255,0)):
+class PlayerObject(pyglet.sprite.Sprite):
+    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,255,0), batch = None):
+        super().__init__(player_sprite, x = X * CELL_WIDTH, y = Y * CELL_HEIGHT, batch = batch)
         self.X, self.Y = X, Y
         self.PREV_X, self.PREV_Y = X, Y
         self.VX, self.VY = 0,0
@@ -342,6 +345,7 @@ class PlayerObject:
     def hasnt_moved(self):
         return (self.X, self.Y) == (self.PREV_X, self.PREV_Y)    
     
+    '''
     def draw(self): 
         #Draw self
         X1,Y1 = self.X * CELL_WIDTH, self.Y * CELL_HEIGHT
@@ -354,6 +358,7 @@ class PlayerObject:
             X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', self.trailcolor * 4 ) )   
         pass
+    '''
 
 #There should be some sort of collectible or something
 
@@ -368,7 +373,7 @@ def pick_open_location_within_range(x0, y0, list_open, r):
 
 #Spawn the player in an open space in the center of the maze
 px, py = pick_open_location_within_range(MAP.width//2, MAP.height//2, list_open, 4)
-PLAYER = PlayerObject(X= px, Y= py, color = (255,255,0))
+PLAYER = PlayerObject(X= px, Y= py, color = (255,255,0), batch = character_sprites_batch)
 
 #Spawn the ghosts in the corners
 GHOSTS = []
