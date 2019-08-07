@@ -31,6 +31,12 @@ def draw_mouse(x,y):
     X1,Y1 = x * CELL_WIDTH,  y * CELL_HEIGHT,
     X2,Y2 = X1 + CELL_WIDTH,Y1 + CELL_HEIGHT
     pyglet.graphics.draw(8 ,pyglet.gl.GL_LINES, ('v2i',[X1,Y1, X2,Y1,  X2,Y1, X2,Y2,  X1,Y2, X2,Y2,  X1,Y1, X1,Y2] ), ('c3B', (255,255,255)* 8 ) )
+
+class GameModes:
+    GameRunning = 0
+    GhostCaughtYou = 1
+    
+game_mode = GameModes.GameRunning
         
 class Node:
     def __init__ (self,x,y):
@@ -153,7 +159,7 @@ class GhostAIType:
    
 #At some point, I will make these sprite objects and add them to a batch
 class Ghost (pyglet.sprite.Sprite):
-    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 1/60, state = GhostAIType.PATROLLING, batch = None):
+    def __init__(self, X = 1, Y = 1, TARGET_X = 22, TARGET_Y = 9, color = (255,0,0), speed = 2/TIME_CONST, state = GhostAIType.PATROLLING, batch = None):
         super().__init__(ghost_sprite, x = X * CELL_WIDTH, y = Y * CELL_HEIGHT, batch = batch)
         
         self.START_X, self.START_Y = X, Y
@@ -279,7 +285,10 @@ class Ghost (pyglet.sprite.Sprite):
             dx, dy = pickDirection(map,player)
             self.move(dx,dy)
             self.timer -= self.speed
-                
+            
+        #hurt the player?
+        if (self.X, self.Y) == (player.X, player.Y): print("caught you!"); pass;
+                   
     def hasntMoved(self):
         return (self.X, self.Y) == (self.PREV_X, self.PREV_Y)
     
@@ -303,7 +312,7 @@ class Ghost (pyglet.sprite.Sprite):
             pyglet.graphics.draw(4 ,pyglet.gl.GL_POLYGON, ('v2i',[X1,Y1, X2,Y1, X2,Y2, X1,Y2] ), ('c3B', (255,255,0) * 4 ) )
     '''
 class PlayerObject(pyglet.sprite.Sprite):
-    def __init__(self, X = 1, Y = 1, speed = 4/TIME_CONST, color = (255,255,0), batch = None):
+    def __init__(self, X = 1, Y = 1, speed = 1/TIME_CONST, color = (255,255,0), batch = None):
         super().__init__(player_sprite, x = X * CELL_WIDTH, y = Y * CELL_HEIGHT, batch = batch)
         self.X, self.Y = X, Y
         self.PREV_X, self.PREV_Y = X, Y
@@ -426,7 +435,7 @@ def pick_open_location_within_range(x0, y0, list_open, r):
 
 #Spawn the player in an open space in the center of the maze
 px, py = pick_open_location_within_range(MAP.width//2, MAP.height//2, list_open, 4)
-PLAYER = PlayerObject(X= px, Y= py, speed = 2/TIME_CONST, color = (255,255,0), batch = character_sprites_batch)
+PLAYER = PlayerObject(X= px, Y= py, speed = 1/TIME_CONST, color = (255,255,0), batch = character_sprites_batch)
 
 #Spawn the ghosts in the corners
 GHOSTS = []
