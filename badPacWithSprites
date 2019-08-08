@@ -34,7 +34,8 @@ def draw_mouse(x,y):
 
 class GameModes:
     GameRunning = 0
-    GhostCaughtYou = 1
+    GamePaused = 1
+    GhostCaughtYou = 2
     
 game_mode = GameModes.GameRunning
         
@@ -49,7 +50,7 @@ class Maze:
     
     so big thanks to oppenheimj for putting it up
     """
-    def __init__(self, width = WINDOW_WIDTH//CELL_WIDTH, height = WINDOW_HEIGHT//CELL_HEIGHT):
+    def __init__(self, width = WINDOW_WIDTH//CELL_WIDTH, height = (WINDOW_HEIGHT//CELL_HEIGHT) -1):
         self.stack = []
         self.height = height
         self.width = width
@@ -257,6 +258,8 @@ class Ghost (pyglet.sprite.Sprite):
         return (self.X,self.Y) == (self.TARGET_X,self.TARGET_Y)
     
     def step(self,map,t,player):
+        def caughtPlayer(player):
+            return (self.X, self.Y) == (player.X, player.Y)
 
         def pickTarget(map,player):
             if self.state == GhostAIType.CHASING: 
@@ -285,9 +288,8 @@ class Ghost (pyglet.sprite.Sprite):
             dx, dy = pickDirection(map,player)
             self.move(dx,dy)
             self.timer -= self.speed
-            
-        #hurt the player?
-        if (self.X, self.Y) == (player.X, player.Y): print("caught you!"); pass;
+        
+        if caughtPlayer(player): pass
                    
     def hasntMoved(self):
         return (self.X, self.Y) == (self.PREV_X, self.PREV_Y)
@@ -456,11 +458,10 @@ MONEY.generateCoins(MAP)
 def on_draw():
     window.clear()
     MAP.draw()
+    #COINS/POWERUPS
     object_sprites_batch.draw()
+    #GHOST/PLAYER
     character_sprites_batch.draw()
-    
-    #for GHOST in GHOSTS: GHOST.draw()
-    #PLAYER.draw()
     draw_mouse(CURSOR_X, CURSOR_Y)
 
 
@@ -470,7 +471,13 @@ def on_key_release(symbol, modifiers):
     
 @window.event
 def on_key_press(symbol, modifiers):
-    PLAYER.on_key_press(symbol, MAP)
+    global game_mode
+    if game_mode == GameModes.GameRunning:
+        if symbol == key.P: game_mode = GameModes.GamePaused
+    
+        PLAYER.on_key_press(symbol, MAP)
+    else:
+        if symbol == key.P: game_mode = GameModes.GameRunning
             
 @window.event
 def on_mouse_motion(x,y,dx,dy):
@@ -479,17 +486,20 @@ def on_mouse_motion(x,y,dx,dy):
     
 @window.event        
 def on_mouse_press(x, y, button, modifiers):
-    
+    pass
+    '''
     if button == mouse.LEFT:
         if MAP.checkCellOpen(CURSOR_X, CURSOR_Y):
             for GHOST in GHOSTS: GHOST.setTarget(CURSOR_X, CURSOR_Y)
-            
+    '''
            
       
 def update(t):
-    PLAYER.step(MAP, t, MONEY)
-    for GHOST in GHOSTS: 
-        GHOST.step(MAP,t,PLAYER)
+    global game_mode
+    if game_mode == GameModes.GameRunning:
+        PLAYER.step(MAP, t, MONEY)
+        for GHOST in GHOSTS: GHOST.step(MAP,t,PLAYER)
+        
     pass
     
 pyglet.clock.schedule_interval(update, 1/TIME_CONST)
