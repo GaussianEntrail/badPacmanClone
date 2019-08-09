@@ -435,12 +435,12 @@ MAP = Maze(width = WINDOW_WIDTH//CELL_WIDTH, height = (WINDOW_HEIGHT//CELL_HEIGH
 list_open = MAP.getListPositionsOpen()
 
 #some sort of algorithm to find some open locations 
-def pick_open_location_within_range(x0, y0, list_open, r):
+def pickFreeSpaceInRange(x0, y0, list_open, r):
     return random.choice( [(x,y) for x,y in list_open if x in range(x0-r,x0+r) and y in range(y0-r,y0+r)] )
 
 
 #Spawn the player in an open space in the center of the maze
-px, py = pick_open_location_within_range(MAP.width//2, MAP.height//2, list_open, 4)
+px, py = pickFreeSpaceInRange(MAP.width//2, MAP.height//2, list_open, 4)
 PLAYER = PlayerObject(X= px, Y= py, speed = 1/TIME_CONST, color = (255,255,0), batch = characterSpritesBatch)
 
 #Spawn the ghosts in the corners
@@ -451,7 +451,7 @@ colors_corners_states = (
     ((0,255,128), (1,MAP.height-2), GhostAIType.PATROLLING),
     ((255,0,128), (MAP.width-2,MAP.height-2), GhostAIType.CHASING) )
 for color, corner, state in colors_corners_states:
-    gx, gy = pick_open_location_within_range(corner[0], corner[1], list_open, 4)
+    gx, gy = pickFreeSpaceInRange(corner[0], corner[1], list_open, 4)
     GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 6/TIME_CONST, state = state, batch = characterSpritesBatch) )
 
 #Spawn coins
