@@ -353,22 +353,22 @@ class PlayerObject(pyglet.sprite.Sprite):
         self.x, self.y = self.X * CELL_WIDTH, self.Y * CELL_HEIGHT
         
     def on_key_press(self,symbol,map):
-        if symbol == key.W:
+        if symbol in (key.W, key.UP):
             #Move up
             self.VX, self.VY = 0, 1
-        elif symbol == key.D:
+        elif symbol in (key.D, key.RIGHT):
             #Move right
             self.VX, self.VY = 1, 0
-        elif symbol == key.A:
+        elif symbol in (key.A, key.LEFT):
             #Move left
             self.VX, self.VY = -1, 0
-        elif symbol == key.S:
+        elif symbol in (key.S, key.DOWN):
             #Move down
             self.VX, self.VY = 0,-1
 
     def on_key_release(self, symbol, map):
-        if symbol in (key.W, key.S): self.VY = 0 #Cease vertical movement
-        if symbol in (key.D, key.A): self.VX = 0 #Cease horizontal movement
+        if symbol in (key.W, key.S, key.UP, key.DOWN): self.VY = 0 #Cease vertical movement
+        if symbol in (key.D, key.A, key.LEFT, key.RIGHT): self.VX = 0 #Cease horizontal movement
       
     def hasntMoved(self):
         return (self.X, self.Y) == (self.PREV_X, self.PREV_Y)    
