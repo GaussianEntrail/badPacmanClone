@@ -133,6 +133,11 @@ class Maze:
     
     def getListPositionsOpen(self):
         return [(x,y) for y in range(self.height) for x in range(self.width) if self.maze[y][x] == 0]
+        
+    def getRandomOpenPositionInRange(self,x,y,r):
+        openPositions = self.getListPositionsOpen()
+        xrange, yrange = range(x-r,x+r), range(y-r,y+r)
+        return random.choice( [(x,y) for x,y in openPositions if x in xrange and y in yrange] )
 
     def getCoordRect(self,x,y):
         #returns the rect
@@ -431,16 +436,11 @@ class moneyObject(pyglet.sprite.Sprite):
         self.color = random.choice(self.colors)
         
 
+
+#Create the game map
 MAP = Maze(width = WINDOW_WIDTH//CELL_WIDTH, height = (WINDOW_HEIGHT//CELL_HEIGHT) -1 )
-list_open = MAP.getListPositionsOpen()
-
-#some sort of algorithm to find some open locations 
-def pickFreeSpaceInRange(x0, y0, list_open, r):
-    return random.choice( [(x,y) for x,y in list_open if x in range(x0-r,x0+r) and y in range(y0-r,y0+r)] )
-
-
 #Spawn the player in an open space in the center of the maze
-px, py = pickFreeSpaceInRange(MAP.width//2, MAP.height//2, list_open, 4)
+px, py = MAP.getRandomOpenPositionInRange(MAP.width//2, MAP.height//2, 3) #pickFreeSpaceInRange(MAP.width//2, MAP.height//2, list_open, 4)
 PLAYER = PlayerObject(X= px, Y= py, speed = 1/TIME_CONST, color = (255,255,0), batch = characterSpritesBatch)
 
 #Spawn the ghosts in the corners
@@ -451,7 +451,7 @@ colors_corners_states = (
     ((0,255,128), (1,MAP.height-2), GhostAIType.PATROLLING),
     ((255,0,128), (MAP.width-2,MAP.height-2), GhostAIType.CHASING) )
 for color, corner, state in colors_corners_states:
-    gx, gy = pickFreeSpaceInRange(corner[0], corner[1], list_open, 4)
+    gx, gy = MAP.getRandomOpenPositionInRange(corner[0], corner[1], 3)
     GHOSTS.append( Ghost(X= gx, Y=gy, TARGET_X = px, TARGET_Y = py, color = color, speed = 6/TIME_CONST, state = state, batch = characterSpritesBatch) )
 
 #Spawn coins
